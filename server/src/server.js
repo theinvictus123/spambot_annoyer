@@ -21,12 +21,12 @@ const cfg = {
 };
 
 const canned = [
-  'Sorry, you broke up right at the important part. Could you start over, but a little slower?',
-  'Hold on, I need to find my glasses. Which company did you say this was?',
-  'I wrote that down, but I may have written it in the wrong box. Could you repeat it?',
-  'Before we continue, can you explain what this is about one more time?',
-  'One moment. I think someone is at the door. Okay, what was the first part again?',
-  'I am having trouble following. Is this about my car, my computer, or something else?'
+  'You're going to have to speak up, I can barely hear you?',
+  'What are you tryin to sell me?',
+  'Hold on my grand kids are yelling in the back ground....   Shut up i'm on the phone',
+  'one second... Damn it kids.. shut the hell up.',
+  'Your accent is pretty strong, are you in india?',
+  'Sorry, I can still barely hear you, my ears ain't the same since vietnam'
 ];
 
 const systemPrompt = `const systemPrompt = `You are Dustin's automated call assistant handling a call that Dustin marked as suspected unsolicited spam.
