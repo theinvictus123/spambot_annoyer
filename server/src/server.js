@@ -21,12 +21,12 @@ const cfg = {
 };
 
 const canned = [
-  'You're going to have to speak up, I can barely hear you?',
+  'Youre going to have to speak up, I can barely hear you?',
   'What are you tryin to sell me?',
-  'Hold on my grand kids are yelling in the back ground....   Shut up i'm on the phone',
+  'Hold on my grand kids are yelling in the back ground....   Shut up im on the phone',
   'one second... Damn it kids.. shut the hell up.',
   'Your accent is pretty strong, are you in india?',
-  'Sorry, I can still barely hear you, my ears ain't the same since vietnam'
+  'Sorry, I can still barely hear you, my ears aint the same since vietnam'
 ];
 
 const systemPrompt = `const systemPrompt = `You are Dustin's automated call assistant handling a call that Dustin marked as suspected unsolicited spam.
