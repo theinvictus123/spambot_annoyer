@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.dustin.spamcalltimewaster"
     compileSdk = 36
+
     defaultConfig {
         applicationId = "com.dustin.spamcalltimewaster"
         minSdk = 26
@@ -13,5 +14,8 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
-}
 
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
