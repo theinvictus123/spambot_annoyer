@@ -23,8 +23,8 @@ const cfg = {
 const canned = [
   'Youre going to have to speak up, I can barely hear you?',
   'What are you tryin to sell me?',
-  'Hold on my grand kids are yelling in the back ground....   Shut up im on the phone',
-  'one second... Damn it kids.. shut the hell up.',
+  'Hold on my grand kids are yelling in the back ground.   Shut up im on the phone',
+  'one second. Damn it kids. shut the hell up.',
   'Your accent is pretty strong, are you in india?',
   'Sorry, I can still barely hear you, my ears aint the same since vietnam'
 ];
