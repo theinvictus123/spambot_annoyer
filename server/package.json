@@ -1,0 +1,17 @@
+{
+  "name": "spam-call-timewaster-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --test"
+  },
+  "dependencies": {
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/websocket": "^11.2.0",
+    "dotenv": "^16.6.1",
+    "fastify": "^5.6.0",
+    "twilio": "^5.10.4"
+  }
+}
