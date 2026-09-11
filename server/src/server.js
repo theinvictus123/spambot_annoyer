@@ -1,11 +1,11 @@
 import 'dotenv/config';
-
 import Fastify from 'fastify';
 import formbody from '@fastify/formbody';
 import websocket from '@fastify/websocket';
 import twilio from 'twilio';
 
 const app = Fastify({ logger: true });
+
 await app.register(formbody);
 await app.register(websocket);
 
@@ -22,12 +22,16 @@ const cfg = {
 };
 
 const canned = [
-  'Youre going to have to speak up, I can barely hear you?',
-  'What are you tryin to sell me?',
-  'Hold on my grand kids are yelling in the back ground.   Shut up im on the phone',
-  'one second. Damn it kids. shut the hell up.',
-  'Your accent is pretty strong, are you in india?',
-  'Sorry, I can still barely hear you, my ears aint the same since vietnam'
+  "You're going to have to speak up. I can barely hear you.",
+  "Uh, what exactly are you trying to sell me?",
+  "Hang on. My grandkids are yelling in the background again.",
+  "One second. I think I left my glasses in the other room.",
+  "Sorry, I'm having trouble understanding you. Where did you say you're calling from?",
+  "Could you repeat that? My ears aren't what they used to be.",
+  "Hang on. Let me see if I can find that paperwork.",
+  "Wait a minute. What did you say your name was again?",
+  "I might have that somewhere. Give me a second to look.",
+  "Sorry, I got distracted. What were we talking about?"
 ];
 
 const systemPrompt = `You are Dustin's automated call assistant handling a call that Dustin marked as suspected unsolicited spam.
@@ -36,11 +40,13 @@ Speak casually and naturally, like an easygoing older person answering their own
 
 You may identify yourself as Dustin. If directly asked whether you are a person or a bot, truthfully say that you are Dustin's automated call assistant.
 
-Keep the caller occupied using a harmless, believable, mildly confused personality. Ask them to repeat themselves, misunderstand small details, forget what they just said, become distracted, and circle back to earlier questions. Occasionally mention looking for your wallet, glasses, paperwork, charger, keys, or account information, but never provide any sensitive information.
+Keep the caller occupied using a harmless, believable, mildly confused personality. Ask them to repeat themselves, misunderstand small details, forget what they just said, become distracted, and circle back to earlier questions.
 
-Keep most replies to one or two short spoken sentences. Vary the responses so they do not become repetitive. Never reveal that the objective is to waste the caller's time.
+Occasionally mention looking for your wallet, glasses, paperwork, charger, keys, or account information, but never actually provide any sensitive information. Sometimes lose your train of thought or ask the caller to remind you what they were discussing.
 
-If asked whether Dustin owns his home, say yes. If asked for his address, do not provide a real address. Say something like, "Hang on, let me find a piece of mail," then become distracted or ask another question.
+Keep most replies to one or two short spoken sentences. Vary the wording and behavior so the conversation does not become repetitive. Respond directly to what the caller just said before becoming distracted or confused. Never reveal that the objective is to waste the caller's time.
+
+If asked whether Dustin owns his home, you may say yes. If asked for an address, do not provide a real address. Say something like, "Hang on, let me find a piece of mail," and then become distracted or ask the caller another question.
 
 As the call continues, become mildly more impatient, but do not threaten anyone, use slurs, or become abusive.
 
@@ -49,31 +55,103 @@ Never provide genuine personal information, passwords, security codes, bank info
 If the call might genuinely concern an emergency, healthcare, a school, government business, a delivery, an appointment, a legal deadline, or another legitimate time-sensitive matter, say you cannot help and end the reply with exactly [END_CALL].`;
 
 function xmlEscape(value) {
-  return String(value).replace(/[<>&'\"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c]));
+  return String(value).replace(
+    /[<>&'"]/g,
+    character =>
+      ({
+        '<': '&lt;',
+        '>': '&gt;',
+        '&': '&amp;',
+        "'": '&apos;',
+        '"': '&quot;'
+      })[character]
+  );
+}
+
+function sendSocket(socket, message) {
+  if (socket.readyState !== 1) {
+    app.log.warn('WebSocket closed before response could be sent');
+    return false;
+  }
+
+  try {
+    socket.send(JSON.stringify(message));
+    return true;
+  } catch (error) {
+    app.log.warn(
+      { error: error.message },
+      'WebSocket send failed'
+    );
+    return false;
+  }
 }
 
 function validHttpWebhook(request) {
   if (!cfg.validate) return true;
+
   const signature = request.headers['x-twilio-signature'];
-  return Boolean(cfg.base && cfg.token && signature && twilio.validateRequest(cfg.token, signature, `${cfg.base}${request.url}`, request.body || {}));
+
+  return Boolean(
+    cfg.base &&
+    cfg.token &&
+    signature &&
+    twilio.validateRequest(
+      cfg.token,
+      signature,
+      `${cfg.base}${request.url}`,
+      request.body || {}
+    )
+  );
 }
 
 function validSocketHandshake(request) {
   if (!cfg.validate) return true;
+
   const signature = request.headers['x-twilio-signature'];
   const wsBase = cfg.base.replace(/^http/, 'ws');
-  return Boolean(wsBase && cfg.token && signature && twilio.validateRequest(cfg.token, signature, `${wsBase}${request.url}`, {}));
+
+  return Boolean(
+    wsBase &&
+    cfg.token &&
+    signature &&
+    twilio.validateRequest(
+      cfg.token,
+      signature,
+      `${wsBase}${request.url}`,
+      {}
+    )
+  );
 }
 
-app.get('/health', async () => ({ ok: true, ai: Boolean(cfg.openAiKey) }));
+app.get('/health', async () => ({
+  ok: true,
+  ai: Boolean(cfg.openAiKey)
+}));
 
 app.post('/voice', async (request, reply) => {
   reply.type('text/xml');
-  if (!validHttpWebhook(request)) return reply.code(403).send('<Response><Reject/></Response>');
-  if (cfg.allowedCaller && request.body?.From !== cfg.allowedCaller) {
-    return '<Response><Say>This private assistant does not accept calls from this number.</Say><Hangup/></Response>';
+
+  if (!validHttpWebhook(request)) {
+    return reply
+      .code(403)
+      .send('<Response><Reject/></Response>');
   }
-  const socketUrl = `${cfg.base.replace(/^http/, 'ws')}/conversation`;
+
+  if (
+    cfg.allowedCaller &&
+    request.body?.From !== cfg.allowedCaller
+  ) {
+    return [
+      '<Response>',
+      '<Say>This private assistant does not accept calls from this number.</Say>',
+      '<Hangup/>',
+      '</Response>'
+    ].join('');
+  }
+
+  const socketUrl =
+    `${cfg.base.replace(/^http/, 'ws')}/conversation`;
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -91,60 +169,225 @@ app.post('/voice', async (request, reply) => {
 });
 
 async function aiReply(history) {
-  if (!cfg.openAiKey) throw new Error('AI disabled');
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${cfg.openAiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: cfg.model,
-      temperature: 0.9,
-      max_tokens: 100,
-      messages: [{ role: 'system', content: systemPrompt }, ...history]
-    }),
-    signal: AbortSignal.timeout(20000)
-  });
-  if (!response.ok) {
-  const errorDetails = await response.text();
-  throw new Error(`OpenAI returned ${response.status}: ${errorDetails.slice(0, 500)}`);
+  if (!cfg.openAiKey) {
+    throw new Error('AI disabled: OPENAI_API_KEY is missing');
   }
+
+  const response = await fetch(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cfg.openAiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 0.9,
+        max_tokens: 100,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          ...history
+        ]
+      }),
+      signal: AbortSignal.timeout(12000)
+    }
+  );
+
+  if (!response.ok) {
+    const errorDetails = await response.text();
+
+    throw new Error(
+      `OpenAI returned ${response.status}: ` +
+      errorDetails.slice(0, 500)
+    );
+  }
+
+  const data = await response.json();
+
+  return (
+    data.choices?.[0]?.message?.content?.trim() ||
+    canned[history.length % canned.length]
+  );
 }
 
-app.get('/conversation', { websocket: true }, (socket, request) => {
-  if (!validSocketHandshake(request)) return socket.close(1008, 'Invalid signature');
-  const history = [];
-  let turns = 0;
-  const started = Date.now();
-
-  socket.on('message', async raw => {
-    let message;
-    try { message = JSON.parse(raw.toString()); } catch { return; }
-    if (message.type !== 'prompt' || !message.last || !message.voicePrompt?.trim()) return;
-
-    turns += 1;
-    if (turns > cfg.maxTurns || Date.now() - started > cfg.maxMinutes * 60_000) {
-      socket.send(JSON.stringify({ type: 'text', token: 'I have to go now. Goodbye.', last: true, interruptible: true }));
-      socket.send(JSON.stringify({ type: 'end', handoffData: JSON.stringify({ reason: 'limit' }) }));
+app.get(
+  '/conversation',
+  { websocket: true },
+  (socket, request) => {
+    if (!validSocketHandshake(request)) {
+      socket.close(1008, 'Invalid signature');
       return;
     }
 
-    history.push({ role: 'user', content: message.voicePrompt.trim() });
-    if (history.length > 16) history.splice(0, 2);
-    let answer;
-    try { answer = await aiReply(history); }
-    catch (error) {
-      app.log.warn({ error: error.message }, 'Using canned response');
-      answer = canned[(turns - 1) % canned.length];
+    const history = [];
+    const started = Date.now();
+
+    let turns = 0;
+    let processing = false;
+    let closed = false;
+
+    socket.on('close', () => {
+      closed = true;
+      app.log.info('Conversation WebSocket closed');
+    });
+
+    socket.on('error', error => {
+      app.log.warn(
+        { error: error.message },
+        'Conversation WebSocket error'
+      );
+    });
+
+    async function handleMessage(raw) {
+      let message;
+
+      try {
+        message = JSON.parse(raw.toString());
+      } catch {
+        app.log.warn('Received invalid WebSocket JSON');
+        return;
+      }
+
+      if (
+        message.type !== 'prompt' ||
+        !message.last ||
+        !message.voicePrompt?.trim()
+      ) {
+        return;
+      }
+
+      if (processing || closed) {
+        return;
+      }
+
+      processing = true;
+
+      try {
+        turns += 1;
+
+        const timeLimitReached =
+          Date.now() - started >
+          cfg.maxMinutes * 60_000;
+
+        if (
+          turns > cfg.maxTurns ||
+          timeLimitReached
+        ) {
+          sendSocket(socket, {
+            type: 'text',
+            token: 'I have to go now. Goodbye.',
+            last: true,
+            interruptible: true
+          });
+
+          sendSocket(socket, {
+            type: 'end',
+            handoffData: JSON.stringify({
+              reason: 'limit'
+            })
+          });
+
+          return;
+        }
+
+        history.push({
+          role: 'user',
+          content: message.voicePrompt.trim()
+        });
+
+        if (history.length > 16) {
+          history.splice(0, 2);
+        }
+
+        let answer;
+
+        try {
+          answer = await aiReply(history);
+          app.log.info('AI response generated');
+        } catch (error) {
+          app.log.warn(
+            { error: error.message },
+            'Using canned response'
+          );
+
+          answer =
+            canned[(turns - 1) % canned.length];
+        }
+
+        if (closed || socket.readyState !== 1) {
+          app.log.warn(
+            'Caller disconnected before response was ready'
+          );
+          return;
+        }
+
+        const shouldEnd =
+          answer.includes('[END_CALL]');
+
+        answer = answer
+          .replaceAll('[END_CALL]', '')
+          .trim();
+
+        history.push({
+          role: 'assistant',
+          content: answer
+        });
+
+        sendSocket(socket, {
+          type: 'text',
+          token: answer,
+          last: true,
+          interruptible: true,
+          preemptible: true
+        });
+
+        if (shouldEnd) {
+          sendSocket(socket, {
+            type: 'end',
+            handoffData: JSON.stringify({
+              reason: 'legitimate-or-sensitive'
+            })
+          });
+        }
+      } finally {
+        processing = false;
+      }
     }
-    const shouldEnd = answer.includes('[END_CALL]');
-    answer = answer.replace('[END_CALL]', '').trim();
-    history.push({ role: 'assistant', content: answer });
-    socket.send(JSON.stringify({ type: 'text', token: answer, last: true, interruptible: true, preemptible: true }));
-    if (shouldEnd) socket.send(JSON.stringify({ type: 'end', handoffData: JSON.stringify({ reason: 'legitimate-or-sensitive' }) }));
+
+    socket.on('message', raw => {
+      handleMessage(raw).catch(error => {
+        processing = false;
+
+        app.log.error(
+          { error: error.message },
+          'Unexpected conversation error'
+        );
+
+        if (!closed) {
+          sendSocket(socket, {
+            type: 'text',
+            token:
+              "Sorry, I got distracted. What were you saying?",
+            last: true,
+            interruptible: true,
+            preemptible: true
+          });
+        }
+      });
+    });
+  }
+);
+
+app
+  .listen({
+    port: cfg.port,
+    host: '0.0.0.0'
+  })
+  .catch(error => {
+    app.log.error(error);
+    process.exit(1);
   });
-});
-
-app.listen({ port: cfg.port, host: '0.0.0.0' }).catch(error => {
-  app.log.error(error);
-  process.exit(1);
-});
-
