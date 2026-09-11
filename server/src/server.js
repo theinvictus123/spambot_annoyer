@@ -15,7 +15,7 @@ const cfg = {
   token: process.env.TWILIO_AUTH_TOKEN || '',
   validate: process.env.VALIDATE_TWILIO !== 'false',
   allowedCaller: process.env.ALLOWED_CALLER || '',
-  openAiKey: process.env.OPENAI_API_KEY || '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',
+  openAiKey: process.env.OPENAI_API_KEY || '',
   model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
   maxTurns: Number(process.env.MAX_TURNS || 35),
   maxMinutes: Number(process.env.MAX_MINUTES || 20)
