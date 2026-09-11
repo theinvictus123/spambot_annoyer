@@ -1,4 +1,5 @@
 import 'dotenv/config';
+
 import Fastify from 'fastify';
 import formbody from '@fastify/formbody';
 import websocket from '@fastify/websocket';
@@ -73,7 +74,20 @@ app.post('/voice', async (request, reply) => {
     return '<Response><Say>This private assistant does not accept calls from this number.</Say><Hangup/></Response>';
   }
   const socketUrl = `${cfg.base.replace(/^http/, 'ws')}/conversation`;
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Connect><ConversationRelay url="${xmlEscape(socketUrl)}" welcomeGreeting="Hello, This is Dustin" language="en-US" interruptible="speech" /></Connect></Response>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <ConversationRelay
+      url="${xmlEscape(socketUrl)}"
+      welcomeGreeting="Uh, hello? This is Dustin."
+      language="en-US"
+      ttsProvider="ElevenLabs"
+      voice="YIn3yKpQSeXNJMF5CIuj-0.88_0.35_0.75"
+      interruptible="speech"
+      interruptSensitivity="medium"
+    />
+  </Connect>
+</Response>`;
 });
 
 async function aiReply(history) {
