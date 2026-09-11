@@ -101,11 +101,12 @@ async function aiReply(history) {
       max_tokens: 100,
       messages: [{ role: 'system', content: systemPrompt }, ...history]
     }),
-    signal: AbortSignal.timeout(9000)
+    signal: AbortSignal.timeout(20000)
   });
-  if (!response.ok) throw new Error(`OpenAI returned ${response.status}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || canned[history.length % canned.length];
+  if (!response.ok) {
+  const errorDetails = await response.text();
+  throw new Error(`OpenAI returned ${response.status}: ${errorDetails.slice(0, 500)}`);
+  }
 }
 
 app.get('/conversation', { websocket: true }, (socket, request) => {
